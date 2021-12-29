@@ -7,6 +7,16 @@ import threading
 
 # Simplified, non-threadsafe version for force_align.py
 # Use the version in realtime for development
+
+## how to use? (jeonghyeok.park)
+## first, make model file and error file
+# fast_align -d -v -o -p path/to/forward_model > path/to/forward_alignment 2> path/to/forward_error
+# fast_align -d -v -o -p -r path/to/backward_model > path/to/backward_alignment 2> path/to/backward_error
+## trained model로 새로운 corpus alignment하기
+## 활용 방법: clean한 데이터로 alignment model 훈련 후 noisy data를 alignment score로 filtering 하기
+# python force_align.py path/to/forward_model path/to/forward_error path/to/backward_model path/to/backward_error [heuristic option] < path/to/input_parallel_data > path/to/output_parallel_data
+# [heuristic option, default=grow-diag-final-and] = [intersect, union, grow-diag, grow-diag-final, grow-diag-final-and]
+
 class Aligner:
 
     def __init__(self, fwd_params, fwd_err, rev_params, rev_err, heuristic='grow-diag-final-and'):
@@ -18,8 +28,8 @@ class Aligner:
         (fwd_T, fwd_m) = self.read_err(fwd_err)
         (rev_T, rev_m) = self.read_err(rev_err)
 
-        fwd_cmd = [fast_align, '-i', '-', '-d', '-T', fwd_T, '-m', fwd_m, '-f', fwd_params]
-        rev_cmd = [fast_align, '-i', '-', '-d', '-T', rev_T, '-m', rev_m, '-f', rev_params, '-r']
+        fwd_cmd = [fast_align, '-i', '-', '-d', '-s','-T', fwd_T, '-m', fwd_m, '-f', fwd_params]
+        rev_cmd = [fast_align, '-i', '-', '-d', '-s','-T', rev_T, '-m', rev_m, '-f', rev_params, '-r']
         tools_cmd = [atools, '-i', '-', '-j', '-', '-c', heuristic]
 
         self.fwd_align = popen_io(fwd_cmd)
@@ -27,8 +37,8 @@ class Aligner:
         self.tools = popen_io(tools_cmd)
 
     def align(self, line):
-        self.fwd_align.stdin.write('{}\n'.format(line))
-        self.rev_align.stdin.write('{}\n'.format(line))
+        self.fwd_align.stdin.write('{}\n'.format(line).encode('utf-8'))
+        self.rev_align.stdin.write('{}\n'.format(line).encode('utf-8'))
         # f words ||| e words ||| links ||| score
         fwd_line = self.fwd_align.stdout.readline().split('|||')[2].strip()
         rev_line = self.rev_align.stdout.readline().split('|||')[2].strip()
